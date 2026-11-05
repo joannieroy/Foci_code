@@ -1,0 +1,85 @@
+function [validFoci, fitModel, fitResult, allFociBoundingBoxesImage]=getFociFits(lblFoci, fociImage, bpassRadius, fittingBoxFactor, saturationTh, minR2, myDapiMask)
+
+%the analysis is done on the mat2gray
+% load('temp.mat')
+% fittingBoxFactor=3; %strel('square', fittingBoxFactor*fociSettings.radius)
+%% J.R. Trying smaller bounding box
+fittingBoxFactor
+bpassRadius
+% bpassRadius=6
+% bpassRadius=4
+% bpassRadius=3
+  bpassRadius=2 %JR Test for optimizing bad foci vs good foci
+% bpassRadius=1
+  minR2 = 0.7 %JR Test for optimizing bad foci vs good foci
+
+%% Fit settings
+fitFunction=fittype('ValM+Amp*exp(-(((x-xo).*cosd(angulo)+(y-yo).*sind(angulo))./sx).^2-((-(x-xo).*sind(angulo)+(y-yo).*cosd(angulo))./sy).^2)',...
+    'independent',{'x', 'y'}, 'dependent', 'z');
+% coeffnames(fitFunction)
+
+myOptions=fitoptions(fitFunction);
+
+myOptions.Lower=[0 0 0 1 1 0 0];
+myOptions.Upper=[1 Inf 360 fittingBoxFactor*bpassRadius fittingBoxFactor*bpassRadius Inf Inf];
+
+    allGoodFociBoundingBoxImage=uint8(fociImage);
+    allBadFociBoundingBoxImage =uint8(fociImage);
+
+for it=1:max(max(lblFoci))
+    
+    %% check saturation
+    thisFocusMask=lblFoci==it;
+    thisFocusMask=imdilate(thisFocusMask, strel('square', fittingBoxFactor*bpassRadius));
+    smallFocusBBox=regionprops(thisFocusMask, 'BoundingBox');
+    smallFocusImage=imcrop(fociImage, smallFocusBBox(1).BoundingBox);
+
+
+%     if sum(sum(smallFocusImage==1))>numel(smallFocusImage)*saturationTh % 10 percent saturation
+%         validFoci(it)=false;
+%         fitModel{it}=sfit;
+%         fitResult{it}=struct;
+%         
+%     else
+        xCoord=1:fittingBoxFactor*bpassRadius+1;
+        yCoord=1:fittingBoxFactor*bpassRadius+1;
+        [xx, yy]=meshgrid(xCoord, yCoord);
+        [xData, yData, zData] = prepareSurfaceData( xx, yy, smallFocusImage );
+
+        initialGuess=[max(max(smallFocusImage)) min(min(smallFocusImage)) 0 bpassRadius bpassRadius...
+        fittingBoxFactor*bpassRadius/2 fittingBoxFactor*bpassRadius/2];
+
+        myOptions.StartPoint=initialGuess;
+
+        [fitModel{it}, thisResult]=fit([xData yData], zData, fitFunction, myOptions);
+        if thisResult.rsquare>minR2
+            validFoci(it)=true;
+            fitResult{it}=thisResult;
+            %greenImage = uint8(imdilate(edge(thisFocusMask, 'sobel'),strel('disk',1))*255);
+            greenImage = uint8(imdilate(edge(thisFocusMask, 'sobel'),strel('square',2))*255);
+            allGoodFociBoundingBoxImage=greenImage+allGoodFociBoundingBoxImage;
+        else
+            validFoci(it)=false;
+            fitModel{it}=sfit;
+            fitResult{it}=struct;
+            %redImage = uint8(imdilate(edge(thisFocusMask, 'sobel'),strel('disk',1))*255);
+            blueImage = uint8(imdilate(edge(thisFocusMask, 'sobel'),strel('square',2))*255);
+            allBadFociBoundingBoxImage=blueImage+allBadFociBoundingBoxImage;
+        end
+
+%         plot(fitModel,[xData, yData],zData)
+end
+         fociImage=uint8(imadjust(fociImage, stretchlim(fociImage, [0.01 0.999]))*255);
+         nucleusImage = uint8(imdilate(edge(myDapiMask, 'sobel'),strel('disk',1))*255);
+         blueImage = nucleusImage+allBadFociBoundingBoxImage;
+         allFociBoundingBoxesImage=cat(3, redImage, allGoodFociBoundingBoxImage, blueImage);
+end
+%% Joannie test
+%         redImage=uint8(imadjust(fociImage, stretchlim(fociImage, [0.01 0.999]))*255);
+%         GoodgreenImage=uint8(imdilate(edge(GoodFociMaskdilated, 'sobel'),strel('disk',1))*255);
+%         blueImage=uint8(imdilate(edge(myDapiMask, 'sobel'),strel('disk',1))*255);
+%         fociResults.GoodFocirgbImage=cat(3,redImage, GoodgreenImage, blueImage);
+%    
+%         BadgreenImage=uint8(imdilate(edge(BadOnesdilatedFociMask, 'sobel'),strel('disk',1))*255);
+%         fociResults.BadFocirgbImage=cat(3,redImage, BadgreenImage, blueImage);
+%         fociResults.AllFociBoundingBoxesImage=allFociBoundingBoxesImage;

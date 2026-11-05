@@ -1,0 +1,52 @@
+clear
+close all
+
+%masterFolder='/Users/grazianamodica/Biophotonics Dropbox/Graziana Modica/Graziana Data/siRNA/ForFociAnalysis/siRNA_80pmol_noZeo';
+
+%masterFolder='/Users/grazianamodica/Biophotonics Dropbox/Graziana Modica/Graziana Data/SpIDAing/SpIDA_Data_Curated/SpIDA_St_07032023_hexa/QBAnalysis/mEGFPHA';
+
+%masterFolder='/Users/grazianamodica/Biophotonics Dropbox/Graziana Modica/Graziana Data/SpIDAing/SpIDA_Data_Curated/SpIDA_St1_26012023/53BP1/53BP1GFP/01000';
+
+%masterFolder='/Users/grazianamodica/Biophotonics Dropbox/Graziana Modica/Graziana Data/SpIDAing/SpIDA_Data_Curated/SpIDA_St1_26012023/mEGFPHA/rep4';
+
+masterFolder='/Users/grazianamodica/Biophotonics Dropbox/Graziana Modica/Graziana Data/SpIDAing/SpIDA_Data_Curated/Graziana/SpIDA_St1_23Dec2022_BRCA1_IR/Foci analysis/3 hours/0GY';
+
+%myFiles=dir(fullfile(masterFolder, '*ChanA*.tif'));
+myFiles=dir(fullfile(masterFolder, '*_C2.tif')); % station 1
+
+mkdir(fullfile(masterFolder, 'Background noise mask_GFP'));
+
+%myFiles=dir(fullfile(masterFolder, '*_C3.tif')); % station 1
+%mkdir(fullfile(masterFolder, 'Background noise mask_HA'));
+
+
+uiwait(msgbox("Select a background region for each image. Get set, ready and... click click click!","Background Noise","modal"));
+
+
+for itFile=1:size(myFiles,1)
+ %for   itFile=9
+    thisImageOriginal=imread(fullfile(masterFolder, myFiles(itFile).name));
+    bkRegion=roipoly(imadjust(mat2gray(thisImageOriginal))); 
+    bkIntensity=mean2(thisImageOriginal(bkRegion));
+
+    save(fullfile(masterFolder, 'Background noise mask_GFP', [myFiles(itFile).name '.bkmask.mat']), 'bkRegion', 'bkIntensity');   
+    %save(fullfile(masterFolder, 'Background noise mask_HA', [myFiles(itFile).name '.bkmask.mat']), 'bkRegion', 'bkIntensity');     
+end
+
+msgbox('You did it. all background noise mask done', 'Background Noise','modal')
+
+close all
+
+
+% imshow(cat(3, mat2gray(thisImage), imdilate(bwperim(cellsMask), strel('disk',3)), imdilate(bwperim(cellsMask), strel('disk',3))))
+%     
+%     answer1=questdlg('Happy with the mask?', 'Satisfaction', 'Yes', 'No', 'Yes')
+%     if strcmp(answer1,'No')
+%         answer2='Draw';
+%         cellsMask=false(size(cellsMask));
+%         while strcmpi(answer2, 'Draw')
+%             thisMask=roipoly(cat(3, mat2gray(thisImage), bwperim(cellsMask), bwperim(cellsMask)));
+%             answer2=questdlg('Keep drawing?', 'Satisfaction', 'Draw', 'No', 'Draw');
+%             cellsMask=cellsMask|thisMask;
+%         end
+%     end
